@@ -53,26 +53,22 @@ st.title("☕ Afficionado Coffee Roasters Dashboard")
 st.markdown("### Product Optimization & Revenue Contribution Analytics")
 
 @st.cache_data
+@st.cache_data
 def load_data():
-
-    df = pd.read_excel("data/coffee.xlsx")
+    df = pd.read_excel("data/coffee.xlsx", engine="openpyxl")
 
     df.columns = df.columns.str.strip()
 
-    df["Revenue"] = (
-        df["transaction_qty"] *
-        df["unit_price"]
-    )
+    df["Revenue"] = df["transaction_qty"] * df["unit_price"]
 
     df["transaction_time"] = pd.to_datetime(
-        df["transaction_time"],
-        format="%H:%M:%S",
-        errors="coerce"
+        df["transaction_time"], format="%H:%M:%S", errors="coerce"
     )
 
     df["Hour"] = df["transaction_time"].dt.hour
 
     return df
+
 
 
 try:
