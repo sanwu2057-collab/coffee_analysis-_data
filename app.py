@@ -52,17 +52,33 @@ st.markdown(
 st.title("☕ Afficionado Coffee Roasters Dashboard")
 st.markdown("### Product Optimization & Revenue Contribution Analytics")
 @st.cache_data
-def load_data(file_path="data/coffee.xlsx"):
-    if file_path.endswith(".csv"):
-        df = pd.read_csv(file_path)
-    elif file_path.endswith(".xls"):
-        df = pd.read_excel(file_path, engine="xlrd")
-    else:  # assume .xlsx
-        df = pd.read_excel(file_path, engine="openpyxl")
+def load_data(zip_path="data/coffee.zip"):
+
+    import zipfile
+    import io
+
+    with zipfile.ZipFile(zip_path) as z:
+
+        file_name = z.namelist()[0]
+
+        with z.open(file_name) as f:
+
+            if file_name.endswith(".csv"):
+
+                df = pd.read_csv(f)
+
+            elif file_name.endswith(".xlsx"):
+
+                df = pd.read_excel(
+                    io.BytesIO(f.read()),
+                    engine="openpyxl"
+                )
+
+            else:
+                st.error("Unsupported file inside ZIP")
+                st.stop()
+
     return df
-
-
-
 
 try:
     df = load_data()
