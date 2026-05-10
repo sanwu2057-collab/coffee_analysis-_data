@@ -67,79 +67,127 @@ st.title("☕ Afficionado Coffee Roasters Dashboard")
 st.markdown("### Product Optimization & Revenue Contribution Analytics")
 
 # =========================================================
-# LOAD DATA FROM ZIP
-# =========================================================
-
-# =========================================================
-# LOAD DATA (ZIP, CSV, XLSX)
+# LOAD DATA FUNCTION
 # =========================================================
 
 @st.cache_data
-def load_data(file_path="data/Afficionado Coffee Roasters(3).xlsx"):
-    import zipfile, io
-
-    # Case 1: ZIP archive
-    if file_path.endswith(".zip"):
-        if not zipfile.is_zipfile(file_path):
-            st.error("Provided file is not a valid ZIP file.")
-            st.stop()
-
-        with zipfile.ZipFile(file_path, "r") as z:
-            file_list = z.namelist()
-            data_file = None
-
-            # Find first CSV or XLSX inside
-            for file in file_list:
-                if file.endswith(".csv") or file.endswith(".xlsx"):
-                    data_file = file
-                    break
-
-            if data_file is None:
-                st.error("No CSV or XLSX file found inside ZIP.")
+def load_data(uploaded_file):
+    """Load data from uploaded file (CSV, XLSX, or ZIP)"""
+    
+    try:
+        # Get file extension
+        file_name = uploaded_file.name
+        file_ext = file_name.split('.')[-1].lower()
+        
+        # Case 1: ZIP archive
+        if file_ext == "zip":
+            if not zipfile.is_zipfile(uploaded_file):
+                st.error("❌ Provided file is not a valid ZIP file.")
                 st.stop()
-
-            with z.open(data_file) as f:
-                if data_file.endswith(".csv"):
-                    df = pd.read_csv(f)
-                else:
-                    df = pd.read_excel(io.BytesIO(f.read()), engine="openpyxl")
-
-    # Case 2: CSV directly
-    elif file_path.endswith(".csv"):
-        df = pd.read_csv(file_path)
-
-    # Case 3: Excel directly
-    elif file_path.endswith(".xlsx"):
-        df = pd.read_excel(file_path, engine="openpyxl")
-
-    else:
-        st.error("Unsupported file format. Use .zip, .csv, or .xlsx")
+            
+            with zipfile.ZipFile(uploaded_file, "r") as z:
+                file_list = z.namelist()
+                data_file = None
+                
+                # Find first CSV or XLSX inside
+                for file in file_list:
+                    if file.endswith(".csv") or file.endswith(".xlsx"):
+                        data_file = file
+                        break
+                
+                if data_file is None:
+                    st.error("❌ No CSV or XLSX file found inside ZIP.")
+                    st.stop()
+                
+                with z.open(data_file) as f:
+                    if data_file.endswith(".csv"):
+                        df = pd.read_csv(f)
+                    else:
+                        df = pd.read_excel(io.BytesIO(f.read()), engine="openpyxl")
+        
+        # Case 2: CSV directly
+        elif file_ext == "csv":
+            df = pd.read_csv(uploaded_file)
+        
+        # Case 3: Excel directly
+        elif file_ext == "xlsx":
+            df = pd.read_excel(uploaded_file, engine="openpyxl")
+        
+        else:
+            st.error("❌ Unsupported file format. Use .zip, .csv, or .xlsx")
+            st.stop()
+        
+        # =====================================================
+        # VALIDATE REQUIRED COLUMNS
+        # =====================================================
+        required_columns = [
+            "product_category", "product_type", "product_detail",
+            "transaction_qty", "unit_price", "transaction_time",
+            "store_location", "product_id"
+        ]
+        
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            st.error(f"❌ Missing required columns: {', '.join(missing_columns)}")
+            st.error(f"Your file has these columns: {', '.join(df.columns.tolist())}")
+            st.stop()
+        
+        # =====================================================
+        # CREATE REQUIRED COLUMNS
+        # =====================================================
+        df["Revenue"] = df["transaction_qty"] * df["unit_price"]
+        df["Hour"] = pd.to_datetime(df["transaction_time"]).dt.hour
+        
+        return df
+    
+    except Exception as e:
+        st.error(f"❌ Error processing file: {str(e)}")
         st.stop()
 
-    # =====================================================
-    # CREATE REQUIRED COLUMNS
-    # =====================================================
-    df["Revenue"] = df["transaction_qty"] * df["unit_price"]
-    df["Hour"] = pd.to_datetime(df["transaction_time"]).dt.hour
-
-    return df
-
 # =========================================================
-# LOAD DATASET
+# SIDEBAR FILE UPLOAD
 # =========================================================
 
-try:
-    # Adjust path to match the file you actually committed
-    df = load_data("data/Afficionado Coffee Roasters(3).xlsx")   # or "data/coffee.csv" or "data/coffee.zip"
-except Exception as e:
-    st.error(f"Error loading dataset: {e}")
+st.sidebar.header("📁 Data Upload")
+
+uploaded_file = st.sidebar.file_uploader(
+    "Upload your coffee sales data",
+    type=["csv", "xlsx", "zip"],
+    help="Upload CSV, XLSX, or ZIP file with your coffee sales data"
+)
+
+# =========================================================
+# LOAD AND DISPLAY DASHBOARD
+# =========================================================
+
+if uploaded_file is None:
+    st.info("📤 Please upload a data file to get started!")
+    st.markdown("""
+    ### Expected File Format:
+    Your data file should contain these columns:
+    - `product_category` - Category of the product
+    - `product_type` - Type of product
+    - `product_detail` - Detailed product name
+    - `transaction_qty` - Quantity sold
+    - `unit_price` - Price per unit
+    - `transaction_time` - Timestamp of transaction
+    - `store_location` - Store location
+    - `product_id` - Product identifier
+    """)
     st.stop()
+
+# Load data
+with st.spinner("📊 Loading and processing data..."):
+    df = load_data(uploaded_file)
+
+st.success("✅ Data loaded successfully!")
 
 # =========================================================
 # SIDEBAR FILTERS
 # =========================================================
 
-st.sidebar.header("Dashboard Filters")
+st.sidebar.markdown("---")
+st.sidebar.header("🎛️ Dashboard Filters")
 
 category_filter = st.sidebar.multiselect(
     "Select Product Category",
@@ -184,13 +232,9 @@ st.markdown("---")
 st.subheader("📊 Key Performance Indicators")
 
 total_revenue = filtered_df["Revenue"].sum()
-
 total_sales = filtered_df["transaction_qty"].sum()
-
 unique_products = filtered_df["product_id"].nunique()
-
 avg_price = filtered_df["unit_price"].mean()
-
 avg_revenue = filtered_df["Revenue"].mean()
 
 top_category = (
@@ -211,7 +255,7 @@ revenue_concentration_ratio = (
 ) * 100
 
 product_efficiency_score = (
-    total_revenue / unique_products
+    total_revenue / unique_products if unique_products > 0 else 0
 )
 
 k1, k2, k3, k4 = st.columns(4)
@@ -224,7 +268,7 @@ k4.metric("💵 Avg Unit Price", f"${avg_price:.2f}")
 
 k5.metric("📈 Avg Transaction Revenue", f"${avg_revenue:.2f}")
 k6.metric("⚠️ Revenue Concentration", f"{revenue_concentration_ratio:.2f}%")
-k7.metric("⭐ Product Efficiency", f"{product_efficiency_score:.2f}")
+k7.metric("⭐ Product Efficiency", f"${product_efficiency_score:.2f}")
 k8.metric("🏆 Top Category", top_category)
 
 # =========================================================
@@ -518,7 +562,7 @@ st.dataframe(
 csv = product_table.to_csv(index=False)
 
 st.download_button(
-    label="Download Product Performance Report",
+    label="📥 Download Product Performance Report",
     data=csv,
     file_name="coffee_dashboard_report.csv",
     mime="text/csv"
@@ -531,28 +575,28 @@ st.download_button(
 st.markdown("---")
 st.subheader("📌 Automated Business Insights")
 
-best_product = revenue_products.iloc[0]["product_detail"]
+best_product = revenue_products.iloc[0]["product_detail"] if len(revenue_products) > 0 else "N/A"
 
 best_category = category_rev.sort_values(
     by="Revenue",
     ascending=False
-).iloc[0]["product_category"]
+).iloc[0]["product_category"] if len(category_rev) > 0 else "N/A"
 
 peak_hour = hourly_df.sort_values(
     by="Revenue",
     ascending=False
-).iloc[0]["Hour"]
+).iloc[0]["Hour"] if len(hourly_df) > 0 else "N/A"
 
 st.success(
-    f"Top Revenue Product: {best_product}"
+    f"💎 Top Revenue Product: {best_product}"
 )
 
 st.info(
-    f"Highest Revenue Category: {best_category}"
+    f"🏆 Highest Revenue Category: {best_category}"
 )
 
 st.warning(
-    f"Peak Sales Hour: {peak_hour}:00"
+    f"⏰ Peak Sales Hour: {peak_hour}:00" if peak_hour != "N/A" else "⏰ Peak Sales Hour: N/A"
 )
 
 # =========================================================
@@ -565,16 +609,16 @@ st.markdown(
     """
     ### Dashboard Features
 
-    - Product Revenue Analysis
-    - Product Popularity Analysis
-    - Pareto Revenue Concentration
-    - Hourly Sales Trends
-    - Store-Level Performance
-    - Category Revenue Distribution
-    - Product Type Insights
-    - Downloadable Reports
-    - Interactive Filtering
-    - KPI Monitoring
+    - 📊 Product Revenue Analysis
+    - 🛍️ Product Popularity Analysis
+    - 📈 Pareto Revenue Concentration
+    - ⏱️ Hourly Sales Trends
+    - 🏪 Store-Level Performance
+    - 🎯 Category Revenue Distribution
+    - 📦 Product Type Insights
+    - 📥 Downloadable Reports
+    - 🎛️ Interactive Filtering
+    - 📌 KPI Monitoring
     """
 )
 
