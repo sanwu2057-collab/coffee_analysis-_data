@@ -50,7 +50,7 @@ st.markdown(
 )
 
 st.title("☕ Afficionado Coffee Roasters Dashboard")
-st.markdown("### Product Optimization & Revenue Contribution Analytics"
+st.markdown("### Product Optimization & Revenue Contribution Analytics")
 @st.cache_data
 def load_data(file_path="data/coffee.xlsx"):
     if file_path.endswith(".csv"):
