@@ -1,10 +1,15 @@
 import streamlit as st
 import pandas as pd
-import zipfile
 import numpy as np
+import zipfile
+import io
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+
+# =========================================================
+# PAGE CONFIG
+# =========================================================
 
 st.set_page_config(
     page_title="Afficionado Coffee Analytics Dashboard",
@@ -12,6 +17,10 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# =========================================================
+# CUSTOM CSS
+# =========================================================
 
 st.markdown(
     """
@@ -41,7 +50,7 @@ st.markdown(
         font-weight: bold;
     }
 
-    h1 {
+    h1, h2, h3 {
         color: #0f172a;
     }
 
@@ -50,43 +59,85 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# =========================================================
+# TITLE
+# =========================================================
+
 st.title("☕ Afficionado Coffee Roasters Dashboard")
 st.markdown("### Product Optimization & Revenue Contribution Analytics")
+
+# =========================================================
+# LOAD DATA FROM ZIP
+# =========================================================
+
 @st.cache_data
 def load_data(zip_path="data/coffee.zip"):
 
-    import zipfile
-    import io
+    # Validate ZIP
+    if not zipfile.is_zipfile(zip_path):
+        st.error("Provided file is not a valid ZIP file.")
+        st.stop()
 
-    with zipfile.ZipFile(zip_path) as z:
+    with zipfile.ZipFile(zip_path, "r") as z:
 
-        file_name = z.namelist()[0]
+        file_list = z.namelist()
 
-        with z.open(file_name) as f:
+        data_file = None
 
-            if file_name.endswith(".csv"):
+        # Find CSV or XLSX
+        for file in file_list:
 
+            if file.endswith(".csv") or file.endswith(".xlsx"):
+                data_file = file
+                break
+
+        if data_file is None:
+            st.error("No CSV or XLSX file found inside ZIP.")
+            st.stop()
+
+        with z.open(data_file) as f:
+
+            # CSV
+            if data_file.endswith(".csv"):
                 df = pd.read_csv(f)
 
-            elif file_name.endswith(".xlsx"):
-
+            # Excel
+            elif data_file.endswith(".xlsx"):
                 df = pd.read_excel(
                     io.BytesIO(f.read()),
                     engine="openpyxl"
                 )
 
-            else:
-                st.error("Unsupported file inside ZIP")
-                st.stop()
+    # =====================================================
+    # CREATE REQUIRED COLUMNS
+    # =====================================================
+
+    df["Revenue"] = (
+        df["transaction_qty"] * df["unit_price"]
+    )
+
+    df["Hour"] = pd.to_datetime(
+        df["transaction_time"]
+    ).dt.hour
 
     return df
 
+# =========================================================
+# LOAD DATASET
+# =========================================================
+
 try:
-    df = load_data()
+
+    df = load_data("data/coffee.zip")
 
 except Exception as e:
+
     st.error(f"Error loading dataset: {e}")
     st.stop()
+
+# =========================================================
+# SIDEBAR FILTERS
+# =========================================================
 
 st.sidebar.header("Dashboard Filters")
 
@@ -115,11 +166,19 @@ top_n = st.sidebar.slider(
     value=10
 )
 
+# =========================================================
+# FILTER DATA
+# =========================================================
+
 filtered_df = df[
     (df["product_category"].isin(category_filter)) &
     (df["store_location"].isin(store_filter)) &
     (df["product_type"].isin(product_type_filter))
 ]
+
+# =========================================================
+# KPIs
+# =========================================================
 
 st.markdown("---")
 st.subheader("📊 Key Performance Indicators")
@@ -156,48 +215,21 @@ product_efficiency_score = (
 )
 
 k1, k2, k3, k4 = st.columns(4)
-
 k5, k6, k7, k8 = st.columns(4)
 
-k1.metric(
-    "💰 Total Revenue",
-    f"${total_revenue:,.2f}"
-)
+k1.metric("💰 Total Revenue", f"${total_revenue:,.2f}")
+k2.metric("🛒 Total Sales Volume", f"{total_sales:,.0f}")
+k3.metric("📦 Unique Products", unique_products)
+k4.metric("💵 Avg Unit Price", f"${avg_price:.2f}")
 
-k2.metric(
-    "🛒 Total Sales Volume",
-    f"{total_sales:,.0f}"
-)
+k5.metric("📈 Avg Transaction Revenue", f"${avg_revenue:.2f}")
+k6.metric("⚠️ Revenue Concentration", f"{revenue_concentration_ratio:.2f}%")
+k7.metric("⭐ Product Efficiency", f"{product_efficiency_score:.2f}")
+k8.metric("🏆 Top Category", top_category)
 
-k3.metric(
-    "📦 Unique Products",
-    unique_products
-)
-
-k4.metric(
-    "💵 Avg Unit Price",
-    f"${avg_price:.2f}"
-)
-
-k5.metric(
-    "📈 Avg Transaction Revenue",
-    f"${avg_revenue:.2f}"
-)
-
-k6.metric(
-    "⚠️ Revenue Concentration",
-    f"{revenue_concentration_ratio:.2f}%"
-)
-
-k7.metric(
-    "⭐ Product Efficiency",
-    f"{product_efficiency_score:.2f}"
-)
-
-k8.metric(
-    "🏆 Top Category",
-    top_category
-)
+# =========================================================
+# CATEGORY REVENUE PIE
+# =========================================================
 
 st.markdown("---")
 st.subheader("Revenue Share by Product Category")
@@ -217,6 +249,10 @@ fig1 = px.pie(
 )
 
 st.plotly_chart(fig1, use_container_width=True)
+
+# =========================================================
+# TOP PRODUCTS BY REVENUE
+# =========================================================
 
 st.markdown("---")
 st.subheader("Top Products by Revenue")
@@ -240,6 +276,10 @@ fig2 = px.bar(
 
 st.plotly_chart(fig2, use_container_width=True)
 
+# =========================================================
+# TOP PRODUCTS BY VOLUME
+# =========================================================
+
 st.markdown("---")
 st.subheader("Top Products by Sales Volume")
 
@@ -261,6 +301,10 @@ fig3 = px.bar(
 )
 
 st.plotly_chart(fig3, use_container_width=True)
+
+# =========================================================
+# SCATTER PLOT
+# =========================================================
 
 st.markdown("---")
 st.subheader("Popularity vs Revenue Analysis")
@@ -285,6 +329,10 @@ fig4 = px.scatter(
 )
 
 st.plotly_chart(fig4, use_container_width=True)
+
+# =========================================================
+# PARETO ANALYSIS
+# =========================================================
 
 st.markdown("---")
 st.subheader("Pareto Analysis (80/20 Rule)")
@@ -332,6 +380,10 @@ fig5.update_layout(
 
 st.plotly_chart(fig5, use_container_width=True)
 
+# =========================================================
+# HOURLY REVENUE TREND
+# =========================================================
+
 st.markdown("---")
 st.subheader("Hourly Revenue Trend")
 
@@ -350,6 +402,10 @@ fig6 = px.line(
 )
 
 st.plotly_chart(fig6, use_container_width=True)
+
+# =========================================================
+# STORE REVENUE
+# =========================================================
 
 st.markdown("---")
 st.subheader("Store-Level Revenue Analysis")
@@ -370,6 +426,10 @@ fig7 = px.bar(
 )
 
 st.plotly_chart(fig7, use_container_width=True)
+
+# =========================================================
+# PRODUCT TYPE ANALYSIS
+# =========================================================
 
 st.markdown("---")
 st.subheader("Product Type Revenue Analysis")
@@ -392,6 +452,10 @@ fig8 = px.bar(
 
 st.plotly_chart(fig8, use_container_width=True)
 
+# =========================================================
+# HEATMAP
+# =========================================================
+
 st.markdown("---")
 st.subheader("Store vs Category Revenue Heatmap")
 
@@ -410,6 +474,10 @@ fig9 = px.imshow(
 )
 
 st.plotly_chart(fig9, use_container_width=True)
+
+# =========================================================
+# PRODUCT TABLE
+# =========================================================
 
 st.markdown("---")
 st.subheader("Detailed Product Performance Table")
@@ -443,6 +511,10 @@ st.dataframe(
     height=600
 )
 
+# =========================================================
+# DOWNLOAD BUTTON
+# =========================================================
+
 csv = product_table.to_csv(index=False)
 
 st.download_button(
@@ -451,6 +523,10 @@ st.download_button(
     file_name="coffee_dashboard_report.csv",
     mime="text/csv"
 )
+
+# =========================================================
+# BUSINESS INSIGHTS
+# =========================================================
 
 st.markdown("---")
 st.subheader("📌 Automated Business Insights")
@@ -478,6 +554,10 @@ st.info(
 st.warning(
     f"Peak Sales Hour: {peak_hour}:00"
 )
+
+# =========================================================
+# FOOTER
+# =========================================================
 
 st.markdown("---")
 
