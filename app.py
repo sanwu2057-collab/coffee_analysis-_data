@@ -75,7 +75,7 @@ st.markdown("### Product Optimization & Revenue Contribution Analytics")
 # =========================================================
 
 @st.cache_data
-def load_data(file_path="data/coffee.xlsx"):
+def load_data(file_path="data/Afficionado Coffee Roasters(3).xlsx"):
     import zipfile, io
 
     # Case 1: ZIP archive
@@ -130,7 +130,7 @@ def load_data(file_path="data/coffee.xlsx"):
 
 try:
     # Adjust path to match the file you actually committed
-    df = load_data("data/coffee.xlsx")   # or "data/coffee.csv" or "data/coffee.zip"
+    df = load_data("data/Afficionado Coffee Roasters(3).xlsx")   # or "data/coffee.csv" or "data/coffee.zip"
 except Exception as e:
     st.error(f"Error loading dataset: {e}")
     st.stop()
