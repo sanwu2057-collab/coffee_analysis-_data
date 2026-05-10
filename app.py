@@ -70,55 +70,57 @@ st.markdown("### Product Optimization & Revenue Contribution Analytics")
 # LOAD DATA FROM ZIP
 # =========================================================
 
+# =========================================================
+# LOAD DATA (ZIP, CSV, XLSX)
+# =========================================================
+
 @st.cache_data
-def load_data(zip_path="data/coffee.zip"):
+def load_data(file_path="data/coffee.xlsx"):
+    import zipfile, io
 
-    # Validate ZIP
-    if not zipfile.is_zipfile(zip_path):
-        st.error("Provided file is not a valid ZIP file.")
-        st.stop()
-
-    with zipfile.ZipFile(zip_path, "r") as z:
-
-        file_list = z.namelist()
-
-        data_file = None
-
-        # Find CSV or XLSX
-        for file in file_list:
-
-            if file.endswith(".csv") or file.endswith(".xlsx"):
-                data_file = file
-                break
-
-        if data_file is None:
-            st.error("No CSV or XLSX file found inside ZIP.")
+    # Case 1: ZIP archive
+    if file_path.endswith(".zip"):
+        if not zipfile.is_zipfile(file_path):
+            st.error("Provided file is not a valid ZIP file.")
             st.stop()
 
-        with z.open(data_file) as f:
+        with zipfile.ZipFile(file_path, "r") as z:
+            file_list = z.namelist()
+            data_file = None
 
-            # CSV
-            if data_file.endswith(".csv"):
-                df = pd.read_csv(f)
+            # Find first CSV or XLSX inside
+            for file in file_list:
+                if file.endswith(".csv") or file.endswith(".xlsx"):
+                    data_file = file
+                    break
 
-            # Excel
-            elif data_file.endswith(".xlsx"):
-                df = pd.read_excel(
-                    io.BytesIO(f.read()),
-                    engine="openpyxl"
-                )
+            if data_file is None:
+                st.error("No CSV or XLSX file found inside ZIP.")
+                st.stop()
+
+            with z.open(data_file) as f:
+                if data_file.endswith(".csv"):
+                    df = pd.read_csv(f)
+                else:
+                    df = pd.read_excel(io.BytesIO(f.read()), engine="openpyxl")
+
+    # Case 2: CSV directly
+    elif file_path.endswith(".csv"):
+        df = pd.read_csv(file_path)
+
+    # Case 3: Excel directly
+    elif file_path.endswith(".xlsx"):
+        df = pd.read_excel(file_path, engine="openpyxl")
+
+    else:
+        st.error("Unsupported file format. Use .zip, .csv, or .xlsx")
+        st.stop()
 
     # =====================================================
     # CREATE REQUIRED COLUMNS
     # =====================================================
-
-    df["Revenue"] = (
-        df["transaction_qty"] * df["unit_price"]
-    )
-
-    df["Hour"] = pd.to_datetime(
-        df["transaction_time"]
-    ).dt.hour
+    df["Revenue"] = df["transaction_qty"] * df["unit_price"]
+    df["Hour"] = pd.to_datetime(df["transaction_time"]).dt.hour
 
     return df
 
@@ -127,11 +129,9 @@ def load_data(zip_path="data/coffee.zip"):
 # =========================================================
 
 try:
-
-    df = load_data("data/coffee.zip")
-
+    # Adjust path to match the file you actually committed
+    df = load_data("data/coffee.xlsx")   # or "data/coffee.csv" or "data/coffee.zip"
 except Exception as e:
-
     st.error(f"Error loading dataset: {e}")
     st.stop()
 
