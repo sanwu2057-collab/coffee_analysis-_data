@@ -50,24 +50,17 @@ st.markdown(
 )
 
 st.title("☕ Afficionado Coffee Roasters Dashboard")
-st.markdown("### Product Optimization & Revenue Contribution Analytics")
-
+st.markdown("### Product Optimization & Revenue Contribution Analytics"
 @st.cache_data
-@st.cache_data
-def load_data():
-    df = pd.read_excel("data/coffee.xlsx", engine="openpyxl")
-
-    df.columns = df.columns.str.strip()
-
-    df["Revenue"] = df["transaction_qty"] * df["unit_price"]
-
-    df["transaction_time"] = pd.to_datetime(
-        df["transaction_time"], format="%H:%M:%S", errors="coerce"
-    )
-
-    df["Hour"] = df["transaction_time"].dt.hour
-
+def load_data(file_path="data/coffee.xlsx"):
+    if file_path.endswith(".csv"):
+        df = pd.read_csv(file_path)
+    elif file_path.endswith(".xls"):
+        df = pd.read_excel(file_path, engine="xlrd")
+    else:  # assume .xlsx
+        df = pd.read_excel(file_path, engine="openpyxl")
     return df
+
 
 
 
