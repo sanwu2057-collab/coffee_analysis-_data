@@ -6,7 +6,6 @@ import io
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import datetime
 
 
 
@@ -75,18 +74,7 @@ st.markdown("### Product Optimization & Revenue Contribution Analytics")
 
 @st.cache_data
 
-def load_data(file):
-    df = pd.read_excel(file)
-    
-    # This loop finds 'time' columns and converts them to strings
-    for col in df.columns:
-        if df[col].dtype == 'object':
-            # Check if the first non-null value is a time object
-            sample = df[col].dropna().iloc[0] if not df[col].dropna().empty else None
-            if isinstance(sample, datetime.time):
-                df[col] = df[col].astype(str)
-                
-    return df
+def load_data(uploaded_file):
     """Load data from uploaded file (CSV, XLSX, or ZIP)"""
     
     try:
