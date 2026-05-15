@@ -6,7 +6,7 @@ import io
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-
+import datetime as dt
 
 
 # =========================================================
@@ -138,10 +138,45 @@ def load_data(uploaded_file):
         # =====================================================
         # CREATE REQUIRED COLUMNS
         # =====================================================
-        df["Revenue"] = df["transaction_qty"] * df["unit_price"]
-        df["Hour"] = pd.to_datetime(df["transaction_time"]).dt.hour
-        
-        return df
+       # =====================================================
+# CREATE REQUIRED COLUMNS
+# =====================================================
+
+# Revenue calculation
+df["Revenue"] = df["transaction_qty"] * df["unit_price"]
+
+# Safe datetime conversion
+time_data = pd.to_datetime(
+    df["transaction_time"],
+    errors="coerce"
+)
+
+# Existing visualization field
+df["Hour"] = time_data.dt.hour
+
+# Added time fields
+df["Minute"] = time_data.dt.minute
+
+# Keep as string to avoid:
+# <class 'datetime.time'> is not convertible to datetime
+df["Time"] = time_data.dt.strftime("%H:%M:%S")
+
+df["AM_PM"] = time_data.dt.strftime("%p")
+
+df["Time_Period"] = pd.cut(
+    df["Hour"],
+    bins=[0,6,12,17,21,24],
+    labels=[
+        "Night",
+        "Morning",
+        "Afternoon",
+        "Evening",
+        "Late Night"
+    ],
+    include_lowest=True
+)
+
+return df
     
     except Exception as e:
         st.error(f"❌ Error processing file: {str(e)}")
